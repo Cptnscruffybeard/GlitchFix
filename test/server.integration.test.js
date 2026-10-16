@@ -124,3 +124,20 @@ test('ticket status can only be changed to an allowed value', async () => {
   });
   assert.equal(bad.status, 400);
 });
+
+test('human feedback is validated and retained as review data', async () => {
+  const created = await fetch(`${base}/api/run`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'demo' })
+  }).then(r => r.json());
+  const listed = await fetch(`${base}/api/tickets`).then(r => r.json());
+  const ticket = listed.tickets.find(item => item.runId === created.run.id);
+  assert.ok(ticket);
+  const response = await fetch(`${base}/api/tickets/${ticket.id}/feedback`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ label: 'partially-correct', note: 'Test review' })
+  });
+  const data = await response.json();
+  assert.equal(response.status, 201);
+  assert.equal(data.feedback.label, 'partially-correct');
+  const summary = await fetch(`${base}/api/feedback`).then(r => r.json());
+  assert.ok(summary.feedbackCount >= 1);
+});
