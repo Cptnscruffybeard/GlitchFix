@@ -26,7 +26,7 @@ Open http://localhost:3000 and choose **Run Demo Test** or **Run Browser QA**. R
 - Five specialist passes: triage, security, reliability, root-cause hypotheses, and ticket drafting.
 - Persistent tickets generated from failed checks, with severity, status tracking, and reviewed feedback labels.
 - A human-reviewed feedback dataset endpoint intended to support later retrieval or model evaluation; it does not train a model by itself.
-- Rule-based investigation summaries with proposed next steps; live LLM diagnosis is not yet enabled.
+- Optional live AI diagnosis through the OpenAI Responses API with strict JSON-schema output validation.
 - Rerun workflow for previous checks.
 - URL validation for HTTP(S), credentials, localhost, common private/reserved IPs, and DNS-resolved private/reserved addresses. Redirects are not followed.
 - Security headers on API and static responses.
@@ -48,6 +48,8 @@ Open http://localhost:3000 and choose **Run Demo Test** or **Run Browser QA**. R
 ## Agents and feedback
 
 The current specialist agents are deterministic rule-based passes, not trained or independently autonomous AI models. They produce ranked hypotheses and draft tickets from observed check failures. Operators can label a ticket diagnosis useful, partly correct, or incorrect; labels are stored in the feedback dataset for later evaluation or a future retrieval/model-training pipeline. Feedback collection is not model training, and the system must not treat its own unreviewed output as ground truth.
+
+To enable live AI diagnosis, set `OPENAI_API_KEY`, set `GLITCHFIX_AI_ENABLED=true`, and optionally set `GLITCHFIX_AI_MODEL` (default `gpt-6-astra`). API calls may incur provider charges. The key remains server-side; AI output is unverified and never applies patches or opens external tickets.
 
 ## Production access protection
 
