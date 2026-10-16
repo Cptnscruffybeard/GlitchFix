@@ -57,6 +57,7 @@ export async function diagnoseWithOpenAI({ results, feedback = [], apiKey, model
     evidence: Object.fromEntries(Object.entries(item.evidence || {}).filter(([key,value]) => key !== 'dataUrl' && typeof value !== 'object').slice(0,12))
   }));
   const reviewed = feedback.slice(0,20).map(item => ({
+    check: String(item.ticketTitle || item.check || '').slice(0,180),
     label: String(item.label || '').slice(0,40),
     note: String(item.note || '').slice(0,500)
   }));
