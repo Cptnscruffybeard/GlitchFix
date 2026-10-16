@@ -39,13 +39,13 @@ const diagnosisSchema = {
 };
 
 function responseText(payload) {
+  if (typeof payload.output_text === 'string' && payload.output_text.trim()) return payload.output_text.trim();
   const parts = [];
   for (const item of payload.output || []) {
     if (item.type !== 'message') continue;
     for (const part of item.content || []) if (part.type === 'output_text' && part.text) parts.push(part.text);
   }
-  if (payload.output_text) parts.unshift(payload.output_text);
-  return parts.join('\n').trim();
+  return parts.join('\\n').trim();
 }
 
 export async function diagnoseWithOpenAI({ results, feedback = [], apiKey, model = 'gpt-6-astra', fetchImpl = fetch }) {
