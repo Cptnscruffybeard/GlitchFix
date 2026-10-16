@@ -13,6 +13,8 @@ jobs:
       - run: npm install
       - name: Install Chromium for browser QA tests
         run: npx playwright install --with-deps chromium
+      - name: Syntax-check JavaScript
+        run: node --check server.js && node --check agents.js && node --check ai-diagnosis.js && node --check browser-worker.js
       - run: npm test
       - name: Health smoke test
         run: |
