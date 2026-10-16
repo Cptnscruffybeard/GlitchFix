@@ -157,7 +157,7 @@ const app = http.createServer(async (req,res) => {
   try {
     const u=new URL(req.url,'http://localhost');
     if (u.pathname.startsWith('/api/') && !(req.method==='GET' && u.pathname==='/api/health')) {
-      if (process.env.NODE_ENV==='production' && !apiToken) return json(res,503,{error:'API is locked: configure GLITCHFIX_API_TOKEN before enabling production access.'});
+      if (process.env.NODE_ENV==='production' && apiToken.length<32) return json(res,503,{error:'API is locked: configure GLITCHFIX_API_TOKEN with at least 32 characters before enabling production access.'});
       if (apiToken && req.headers.authorization !== 'Bearer '+apiToken) return json(res,401,{error:'Unauthorized. Enter the configured GlitchFix access token.'});
       const now=Date.now(), key=req.socket.remoteAddress||'unknown'; let window=rateWindows.get(key);
       if (!window || now-window.startedAt>=60000) window={startedAt:now,count:0}; window.count++; rateWindows.set(key,window);
