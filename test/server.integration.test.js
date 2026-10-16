@@ -51,6 +51,7 @@ test('health endpoint returns version and security headers', async () => {
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
   assert.equal(response.headers.get('x-frame-options'), 'DENY');
   assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
+  assert.match(response.headers.get('content-security-policy'), /frame-ancestors 'none'/);
 });
 
 test('demo run is saved and appears in history', async () => {
@@ -154,4 +155,28 @@ test('browser QA captures page health signals and a screenshot', async () => {
   const screenshot = data.run.results.find(item => item.name === 'Viewport screenshot');
   assert.ok(screenshot);
   assert.match(screenshot.evidence.dataUrl, /^data:image\/jpeg;base64,/);
+});
+
+test('production APIs fail closed without an access token', async () => {
+  const port = await freePort();
+  const isolatedDir = await mkdtemp(join(tmpdir(), 'glitchfix-prod-test-'));
+  const child = spawn(process.execPath, [new URL('../server.js', import.meta.url).pathname], {
+    env: { ...process.env, NODE_ENV: 'production', GLITCHFIX_API_TOKEN: '', PORT: String(port), GLITCHFIX_DATA_DIR: isolatedDir },
+    stdio: 'ignore'
+  });
+  const origin = `http://127.0.0.1:${port}`;
+  try {
+    let ready = false;
+    for (let i = 0; i < 50; i++) {
+      try { if ((await fetch(`${origin}/api/health`)).ok) { ready = true; break; } } catch {}
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    assert.ok(ready, 'production test server should start');
+    assert.equal((await fetch(`${origin}/api/health`)).status, 200);
+    const protectedResponse = await fetch(`${origin}/api/agents`);
+    assert.equal(protectedResponse.status, 503);
+  } finally {
+    if (child.exitCode === null) child.kill('SIGTERM');
+    await rm(isolatedDir, { recursive: true, force: true });
+  }
 });
