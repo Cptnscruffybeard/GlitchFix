@@ -4,19 +4,22 @@ GlitchFix is a runnable beta for automated QA checks of public websites, safe re
 
 ## Run
 
-Requirements: Node.js 20+.
+Requirements: Node.js 20+, npm, and Playwright Chromium installed (`npm install` then `npx playwright install chromium`). For the browser-ready Docker image, use `docker build -t glitchfix .` and run it with a persistent data volume plus a strong `GLITCHFIX_API_TOKEN`.
 
 ```bash
+npm install
+npx playwright install chromium
 npm start
 ```
 
-Open http://localhost:3000 and choose **Run Demo Test**. No third-party packages are required. Run tests with `npm test`.
+Open http://localhost:3000 and choose **Run Demo Test** or **Run Browser QA**. Run automated tests with `npm test`.
 
 ## Features
 
 - Responsive dashboard with run history, evidence detail, project saving, and result summaries.
 - Demo suite with intentionally seeded failures.
 - Public website status, content-type, and basic security-header checks.
+- Chromium browser QA: page navigation/status, document title, H1 presence, JavaScript console errors, uncaught page errors, failed requests, HTTP 400+ responses, network safety-filter events, and viewport screenshot evidence.
 - Read-only API checks for GET/HEAD/OPTIONS, expected HTTP status, and optional top-level JSON field.
 - Public GitHub repository manifest inspection: repository metadata, package.json parsing, and test/lint/build script presence.
 - Local JSON persistence under `data/state.json` (override with `GLITCHFIX_DATA_DIR`).
@@ -33,14 +36,14 @@ Open http://localhost:3000 and choose **Run Demo Test**. No third-party packages
 
 ## Important limits
 
-- This beta does **not** launch a real browser automation engine, execute repository code, run customer unit tests, or apply/verify code patches.
+- Browser QA is now real Chromium automation, but it is a limited smoke-test suite. It does **not** execute repository code, run customer unit tests, crawl entire applications, or apply/verify code patches.
 - GitHub inspection is read-only and limited to public repositories.
 - Rerunning checks is not patch verification.
 - Website/API checks are smoke tests, not a penetration test.
 - Local JSON persistence is for a single-instance beta, not multi-tenant production storage.
 - A shared bearer token is an interim launch gate, not full account-based authentication or tenant isolation.
 - DNS validation reduces risk but is not a complete SSRF defense against DNS rebinding.
-- Do not expose this beta directly to the public internet without authentication, rate limiting, infrastructure-enforced outbound network restrictions, and disposable isolated workers for untrusted browser/code workloads.
+- The browser worker is a child process in the same service container, not a security sandbox. Do not expose this beta directly to the public internet until per-user authentication, stronger rate limiting, infrastructure-enforced outbound network restrictions, and disposable isolated browser/code workers are in place.
 
 ## Agents and feedback
 
@@ -52,4 +55,4 @@ Set `GLITCHFIX_API_TOKEN` to a long random secret in the hosting provider's secr
 
 ## Deployment
 
-Use `npm start` with a writable persistent disk for `data/state.json`. Set `PORT` and optionally `GLITCHFIX_DATA_DIR`. Production work still required includes tenant-aware authentication/authorization, a database, a background queue, secret encryption, controlled egress, and isolated test workers.
+Use `npm start` with a writable persistent disk for `data/state.json`. Set `PORT` and optionally `GLITCHFIX_DATA_DIR`. Production work still required includes tenant-aware authentication/authorization, a database, a background queue, secret encryption, controlled egress, and isolated test workers. The shared bearer token is an interim gate, not multi-tenant account security.
