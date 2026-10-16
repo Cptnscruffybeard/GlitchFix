@@ -1,5 +1,5 @@
 FROM mcr.microsoft.com/playwright:v1.55.0-noble
-ENV NODE_ENV=production PORT=3000 GLITCHFIX_DATA_DIR=/app/data
+ENV NODE_ENV=production PORT=3000 GLITCHFIX_DATA_DIR=/app/data PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev
