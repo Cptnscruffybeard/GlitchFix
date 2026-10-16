@@ -58,11 +58,13 @@ test('demo run is saved and appears in history', async () => {
   const response = await fetch(`${base}/api/run`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ kind: 'demo' })
+    body: JSON.stringify({ kind: 'demo', url: 'https://example.com/path?token=secret-value&mode=test' })
   });
   const data = await response.json();
   assert.equal(response.status, 200);
   assert.equal(data.run.kind, 'demo');
+  assert.ok(!JSON.stringify(data.run).includes('secret-value'));
+  assert.ok(data.run.input.url.includes('mode=test'));
   assert.ok(data.run.results.some(item => item.status === 'failed'));
   const history = await fetch(`${base}/api/runs`).then(r => r.json());
   assert.equal(history.runs[0].id, data.run.id);
@@ -79,10 +81,13 @@ test('saved project requires a name and can be created', async () => {
   assert.equal(bad.status, 400);
   const good = await fetch(`${base}/api/projects`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name: 'Integration test project', url: 'https://example.com' })
+    body: JSON.stringify({ name: 'Integration test project', url: 'https://example.com/path?api_key=secret-value&tab=overview' })
   });
   assert.equal(good.status, 201);
-  assert.equal((await good.json()).project.name, 'Integration test project');
+  const saved = await good.json();
+  assert.equal(saved.project.name, 'Integration test project');
+  assert.ok(!saved.project.url.includes('secret-value'));
+  assert.ok(saved.project.url.includes('tab=overview'));
 });
 
 test('demo rerun workflow works and clearly does not claim patch verification', async () => {
