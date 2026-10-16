@@ -12,7 +12,7 @@ const dataDir = process.env.GLITCHFIX_DATA_DIR || join(root, 'data');
 const statePath = join(dataDir, 'state.json');
 const port = Number(process.env.PORT || 3000);
 const state = { runs: [], projects: [] };
-const json = (res, status, value) => { res.writeHead(status, { 'content-type':'application/json; charset=utf-8', 'cache-control':'no-store' }); res.end(JSON.stringify(value)); };
+const securityHeaders = { 'x-content-type-options':'nosniff', 'x-frame-options':'DENY', 'referrer-policy':'no-referrer', 'permissions-policy':'camera=(), microphone=(), geolocation=()', 'cache-control':'no-store' };\nconst json = (res, status, value) => { res.writeHead(status, { ...securityHeaders, 'content-type':'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
 async function loadState() { try { const saved = JSON.parse(await readFile(statePath,'utf8')); state.runs = saved.runs || []; state.projects = saved.projects || []; } catch {} }
 async function saveState() { await mkdir(dataDir,{recursive:true}); await writeFile(statePath,JSON.stringify(state,null,2)); }
 function privateIp(ip) {
@@ -92,16 +92,16 @@ const app = http.createServer(async (req,res) => {
     if(req.method==='POST'&&u.pathname==='/api/run') {
       const b=await bodyOf(req); const kind=['demo','site','api','repo'].includes(b.kind)?b.kind:'demo'; const started=Date.now();
       let results; try { results=await runChecks(kind,b); } catch(e) { results=[check('Run setup','error',e.message)]; }
-      const inv=investigate(results); const run={id:crypto.randomUUID(),kind,target:b.url||'GlitchFix demo fixture',createdAt:new Date().toISOString(),durationMs:Date.now()-started,results,investigation:inv};
+      const inv=investigate(results); const input={url:String(b.url||''),path:String(b.path||'/api/health'),expectedStatus:Number(b.expectedStatus||200),expectedJsonKey:String(b.expectedJsonKey||''),method:String(b.method||'GET')};\n      const run={id:crypto.randomUUID(),kind,target:b.url||'GlitchFix demo fixture',input,createdAt:new Date().toISOString(),durationMs:Date.now()-started,results,investigation:inv};
       state.runs.unshift(run); state.runs=state.runs.slice(0,100); await saveState(); return json(res,200,{run});
     }
     if(req.method==='POST'&&u.pathname==='/api/projects') { const b=await bodyOf(req); if(!String(b.name||'').trim()) return json(res,400,{error:'Project name is required.'}); const p={id:crypto.randomUUID(),name:String(b.name).slice(0,100),url:String(b.url||'').slice(0,2000),createdAt:new Date().toISOString()}; state.projects.unshift(p); await saveState(); return json(res,201,{project:p}); }
-    if(req.method==='POST'&&u.pathname==='/api/verify') { const b=await bodyOf(req); const old=state.runs.find(x=>x.id===b.runId); if(!old) return json(res,404,{error:'Run not found.'}); const rerun=await runChecks(old.kind,{url:old.target}); const inv=investigate(rerun); const run={id:crypto.randomUUID(),kind:old.kind,target:old.target,createdAt:new Date().toISOString(),results:rerun,investigation:inv,verificationNote:'Checks rerun only; no patch was applied or verified.'}; state.runs.unshift(run); await saveState(); return json(res,200,{run}); }
+    if(req.method==='POST'&&u.pathname==='/api/verify') { const b=await bodyOf(req); const old=state.runs.find(x=>x.id===b.runId); if(!old) return json(res,404,{error:'Run not found.'}); const rerun=await runChecks(old.kind,old.input||{url:old.target}); const inv=investigate(rerun); const run={id:crypto.randomUUID(),kind:old.kind,target:old.target,input:old.input||{url:old.target},createdAt:new Date().toISOString(),results:rerun,investigation:inv,verificationNote:'Checks rerun only; no patch was applied or verified.'}; state.runs.unshift(run); await saveState(); return json(res,200,{run}); }
     if(req.method==='GET') {
       const path=resolve(publicDir,'.'+decodeURIComponent(u.pathname)); if(path!==publicDir&&!path.startsWith(publicDir+ (process.platform==='win32'?'\\\\':'/'))) return json(res,403,{error:'Forbidden'});
       const file=path===publicDir?join(publicDir,'index.html'):path;
       if(!existsSync(file)) return json(res,404,{error:'Not found'});
-      const ext=file.split('.').pop(); res.writeHead(200,{'content-type':ext==='html'?'text/html; charset=utf-8':ext==='css'?'text/css':'text/javascript; charset=utf-8','x-content-type-options':'nosniff'}); return res.end(await readFile(file));
+      const ext=file.split('.').pop(); res.writeHead(200,{...securityHeaders,'content-type':ext==='html'?'text/html; charset=utf-8':ext==='css'?'text/css':'text/javascript; charset=utf-8'}); return res.end(await readFile(file));
     }
     return json(res,404,{error:'Not found'});
   } catch(e) { return json(res,400,{error:e.message||'Request failed.'}); }
