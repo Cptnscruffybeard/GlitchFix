@@ -5,16 +5,17 @@ import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dns from 'node:dns/promises';
 import net from 'node:net';
+import { runAgentPipeline } from './agents.js';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const publicDir = join(root, 'public');
 const dataDir = process.env.GLITCHFIX_DATA_DIR || join(root, 'data');
 const statePath = join(dataDir, 'state.json');
 const port = Number(process.env.PORT || 3000);
-const state = { runs: [], projects: [] };
+const state = { runs: [], projects: [], tickets: [] };
 const securityHeaders = { 'x-content-type-options':'nosniff', 'x-frame-options':'DENY', 'referrer-policy':'no-referrer', 'permissions-policy':'camera=(), microphone=(), geolocation=()', 'cache-control':'no-store' };
 const json = (res, status, value) => { res.writeHead(status, { ...securityHeaders, 'content-type':'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
-async function loadState() { try { const saved = JSON.parse(await readFile(statePath,'utf8')); state.runs = saved.runs || []; state.projects = saved.projects || []; } catch {} }
+async function loadState() { try { const saved = JSON.parse(await readFile(statePath,'utf8')); state.runs = saved.runs || []; state.projects = saved.projects || []; state.tickets = saved.tickets || []; } catch {} }
 async function saveState() { await mkdir(dataDir,{recursive:true}); await writeFile(statePath,JSON.stringify(state,null,2)); }
 function privateIp(ip) {
   if (net.isIPv4(ip)) { const a=ip.split('.').map(Number); return a[0]===10 || a[0]===127 || a[0]===0 || a[0]===169&&a[1]===254 || a[0]===172&&a[1]>=16&&a[1]<=31 || a[0]===192&&a[1]===168 || a[0]>=224 || a[0]===100&&a[1]>=64&&a[1]<=127; }
@@ -39,10 +40,6 @@ async function request(raw, method='GET') {
   return fetch(u,{method,redirect:'manual',signal:abort,headers:{'user-agent':'GlitchFix-Beta/0.3 authorized-qa-checks'}});
 }
 const check = (name,status,detail,evidence={}) => ({name,status,detail,evidence});
-function investigate(results) {
-  const failed=results.filter(x=>x.status==='failed'||x.status==='error');
-  return { summary: failed.length ? `${failed.length} issue(s) need review.` : 'No failures detected in this run.', findings: failed.map(x=>({check:x.name,likelyCause:x.detail,proposedFix:x.name.toLowerCase().includes('https')?'Review TLS and redirect configuration.':'Inspect the failing response and reproduce in a controlled test.',verified:false})), note:'Fixes are proposals only. Rerunning checks does not verify a code patch.' };
-}
 async function runChecks(kind, body={}) {
   const results=[];
   if (kind==='demo') return [
@@ -90,15 +87,20 @@ const app = http.createServer(async (req,res) => {
     const u=new URL(req.url,'http://localhost');
     if(req.method==='GET'&&u.pathname==='/api/health') return json(res,200,{status:'ok',app:'GlitchFix',version:'0.3.0'});
     if(req.method==='GET'&&u.pathname==='/api/runs') return json(res,200,{runs:state.runs.slice(0,50),projects:state.projects});
+    if(req.method==='GET'&&u.pathname==='/api/agents') return json(res,200,{agents:[{name:'Triage Agent',role:'Severity and prioritization'},{name:'Security Agent',role:'Security-related findings'},{name:'Reliability Agent',role:'Availability and response contracts'},{name:'Root-Cause Agent',role:'Hypothesis generation from evidence'},{name:'Ticket Agent',role:'Draft actionable tickets'}],mode:'deterministic-multi-agent',disclaimer:'Rule-based specialist passes, not trained AI models.'});
+    if(req.method==='GET'&&u.pathname==='/api/tickets') return json(res,200,{tickets:state.tickets.slice(0,200)});
+    if(req.method==='POST'&&u.pathname.startsWith('/api/tickets/')) { const id=decodeURIComponent(u.pathname.slice('/api/tickets/'.length)); const b=await bodyOf(req); const ticket=state.tickets.find(x=>x.id===id); if(!ticket) return json(res,404,{error:'Ticket not found.'}); if(!['open','in-progress','resolved','wont-fix'].includes(b.status)) return json(res,400,{error:'Status must be open, in-progress, resolved, or wont-fix.'}); ticket.status=b.status; ticket.updatedAt=new Date().toISOString(); await saveState(); return json(res,200,{ticket}); }
     if(req.method==='POST'&&u.pathname==='/api/run') {
       const b=await bodyOf(req); const kind=['demo','site','api','repo'].includes(b.kind)?b.kind:'demo'; const started=Date.now();
       let results; try { results=await runChecks(kind,b); } catch(e) { results=[check('Run setup','error',e.message)]; }
-      const inv=investigate(results); const input={url:String(b.url||''),path:String(b.path||'/api/health'),expectedStatus:Number(b.expectedStatus||200),expectedJsonKey:String(b.expectedJsonKey||''),method:String(b.method||'GET')};
+      const inv=investigate(results,{kind,target:b.url||'GlitchFix demo fixture'}); const input={url:String(b.url||''),path:String(b.path||'/api/health'),expectedStatus:Number(b.expectedStatus||200),expectedJsonKey:String(b.expectedJsonKey||''),method:String(b.method||'GET')};
       const run={id:crypto.randomUUID(),kind,target:b.url||'GlitchFix demo fixture',input,createdAt:new Date().toISOString(),durationMs:Date.now()-started,results,investigation:inv};
-      state.runs.unshift(run); state.runs=state.runs.slice(0,100); await saveState(); return json(res,200,{run});
+      state.runs.unshift(run); state.runs=state.runs.slice(0,100);
+      for (const draft of inv.tickets || []) state.tickets.unshift({id:crypto.randomUUID(),runId:run.id,target:run.target,createdAt:run.createdAt,...draft});
+      state.tickets=state.tickets.slice(0,300); await saveState(); return json(res,200,{run});
     }
     if(req.method==='POST'&&u.pathname==='/api/projects') { const b=await bodyOf(req); if(!String(b.name||'').trim()) return json(res,400,{error:'Project name is required.'}); const p={id:crypto.randomUUID(),name:String(b.name).slice(0,100),url:String(b.url||'').slice(0,2000),createdAt:new Date().toISOString()}; state.projects.unshift(p); await saveState(); return json(res,201,{project:p}); }
-    if(req.method==='POST'&&u.pathname==='/api/verify') { const b=await bodyOf(req); const old=state.runs.find(x=>x.id===b.runId); if(!old) return json(res,404,{error:'Run not found.'}); const rerun=await runChecks(old.kind,old.input||{url:old.target}); const inv=investigate(rerun); const run={id:crypto.randomUUID(),kind:old.kind,target:old.target,input:old.input||{url:old.target},createdAt:new Date().toISOString(),results:rerun,investigation:inv,verificationNote:'Checks rerun only; no patch was applied or verified.'}; state.runs.unshift(run); await saveState(); return json(res,200,{run}); }
+    if(req.method==='POST'&&u.pathname==='/api/verify') { const b=await bodyOf(req); const old=state.runs.find(x=>x.id===b.runId); if(!old) return json(res,404,{error:'Run not found.'}); const rerun=await runChecks(old.kind,old.input||{url:old.target}); const inv=investigate(rerun,{kind:old.kind,target:old.target}); const run={id:crypto.randomUUID(),kind:old.kind,target:old.target,input:old.input||{url:old.target},createdAt:new Date().toISOString(),results:rerun,investigation:inv,verificationNote:'Checks rerun only; no patch was applied or verified.'}; state.runs.unshift(run); state.runs=state.runs.slice(0,100); for (const draft of inv.tickets || []) state.tickets.unshift({id:crypto.randomUUID(),runId:run.id,target:run.target,createdAt:run.createdAt,...draft}); state.tickets=state.tickets.slice(0,300); await saveState(); return json(res,200,{run}); }
     if(req.method==='GET') {
       const path=resolve(publicDir,'.'+decodeURIComponent(u.pathname)); if(path!==publicDir&&!path.startsWith(publicDir+ (process.platform==='win32'?'\\\\':'/'))) return json(res,403,{error:'Forbidden'});
       const file=path===publicDir?join(publicDir,'index.html'):path;
@@ -109,4 +111,4 @@ const app = http.createServer(async (req,res) => {
   } catch(e) { return json(res,400,{error:e.message||'Request failed.'}); }
 });
 await loadState();
-app.listen(port,'0.0.0.0',()=>console.log(`GlitchFix Beta 0.2.0 listening on ${port}`));
+app.listen(port,'0.0.0.0',()=>console.log(`GlitchFix Beta 0.4.0 listening on ${port}`));
