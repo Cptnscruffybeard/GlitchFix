@@ -1,0 +1,2 @@
+# GlitchFix
+AI QA tester 
