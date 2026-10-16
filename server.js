@@ -61,7 +61,7 @@ async function request(raw, method='GET') {
   return fetch(u,{method,redirect:'manual',signal:abort,headers:{'user-agent':'GlitchFix-Beta/0.4 authorized-qa-checks'}});
 }
 const check = (name,status,detail,evidence={}) => ({name,status,detail,evidence});
-function investigate(results, context={}) { return runAgentPipeline(results, context); }
+function investigate(results, context={}) { return runAgentPipeline(results, {...context, feedback:state.feedback, tickets:state.tickets}); }
 async function runBrowserChecks(rawUrl) {
   const target=await safeUrl(rawUrl);
   return await new Promise((resolvePromise,rejectPromise)=>{
