@@ -190,3 +190,28 @@ test('production APIs fail closed without an access token', async () => {
     await rm(isolatedDir, { recursive: true, force: true });
   }
 });
+
+test('production API rejects missing tokens and accepts the configured bearer token', async () => {
+  const port = await freePort();
+  const isolatedDir = await mkdtemp(join(tmpdir(), 'glitchfix-token-test-'));
+  const secret = 'test-only-long-random-token';
+  const child = spawn(process.execPath, [new URL('../server.js', import.meta.url).pathname], {
+    env: { ...process.env, NODE_ENV: 'production', GLITCHFIX_API_TOKEN: secret, PORT: String(port), GLITCHFIX_DATA_DIR: isolatedDir },
+    stdio: 'ignore'
+  });
+  const origin = `http://127.0.0.1:${port}`;
+  try {
+    let ready = false;
+    for (let i = 0; i < 50; i++) {
+      try { if ((await fetch(`${origin}/api/health`)).ok) { ready = true; break; } } catch {}
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    assert.ok(ready, 'token test server should start');
+    assert.equal((await fetch(`${origin}/api/agents`)).status, 401);
+    const authorized = await fetch(`${origin}/api/agents`, { headers: { authorization: `Bearer ${secret}` } });
+    assert.equal(authorized.status, 200);
+  } finally {
+    if (child.exitCode === null) child.kill('SIGTERM');
+    await rm(isolatedDir, { recursive: true, force: true });
+  }
+});
