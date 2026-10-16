@@ -98,7 +98,7 @@ const app = http.createServer(async (req,res) => {
     if(req.method==='POST'&&u.pathname==='/api/projects') { const b=await bodyOf(req); if(!String(b.name||'').trim()) return json(res,400,{error:'Project name is required.'}); const p={id:crypto.randomUUID(),name:String(b.name).slice(0,100),url:String(b.url||'').slice(0,2000),createdAt:new Date().toISOString()}; state.projects.unshift(p); await saveState(); return json(res,201,{project:p}); }
     if(req.method==='POST'&&u.pathname==='/api/verify') { const b=await bodyOf(req); const old=state.runs.find(x=>x.id===b.runId); if(!old) return json(res,404,{error:'Run not found.'}); const rerun=await runChecks(old.kind,{url:old.target}); const inv=investigate(rerun); const run={id:crypto.randomUUID(),kind:old.kind,target:old.target,createdAt:new Date().toISOString(),results:rerun,investigation:inv,verificationNote:'Checks rerun only; no patch was applied or verified.'}; state.runs.unshift(run); await saveState(); return json(res,200,{run}); }
     if(req.method==='GET') {
-      const path=resolve(publicDir,'.'+decodeURIComponent(u.pathname)); if(!path.startsWith(publicDir)) return json(res,403,{error:'Forbidden'});
+      const path=resolve(publicDir,'.'+decodeURIComponent(u.pathname)); if(path!==publicDir&&!path.startsWith(publicDir+ (process.platform==='win32'?'\\\\':'/'))) return json(res,403,{error:'Forbidden'});
       const file=path===publicDir?join(publicDir,'index.html'):path;
       if(!existsSync(file)) return json(res,404,{error:'Not found'});
       const ext=file.split('.').pop(); res.writeHead(200,{'content-type':ext==='html'?'text/html; charset=utf-8':ext==='css'?'text/css':'text/javascript; charset=utf-8','x-content-type-options':'nosniff'}); return res.end(await readFile(file));
