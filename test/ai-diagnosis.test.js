@@ -31,7 +31,7 @@ test('AI diagnosis sends bounded evidence and parses strict structured output', 
     apiKey: 'test-key',
     model: 'test-model',
     results: [{ name: 'Browser screenshot', status: 'passed', detail: 'Captured.', evidence: { dataUrl: 'data:image/jpeg;base64,secret-large-payload', status: 200 } }],
-    feedback: [{ label: 'useful', note: 'Helpful' }],
+    feedback: [{ label: 'useful', note: 'Helpful', ticketTitle: 'HTTP response' }],
     fetchImpl
   });
   assert.equal(result.model, 'test-model');
@@ -40,6 +40,7 @@ test('AI diagnosis sends bounded evidence and parses strict structured output', 
   assert.equal(requestBody.store, false);
   assert.equal(requestBody.text.format.type, 'json_schema');
   assert.ok(!requestBody.input.includes('secret-large-payload'));
+  assert.ok(requestBody.input.includes('HTTP response'));
 });
 
 test('AI diagnosis rejects malformed provider output', async () => {
