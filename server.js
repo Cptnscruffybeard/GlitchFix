@@ -84,7 +84,9 @@ async function enrichWithAI(results, investigation) {
 async function runBrowserChecks(rawUrl) {
   const target=await safeUrl(rawUrl);
   return await new Promise((resolvePromise,rejectPromise)=>{
-    const workerEnv={PATH:process.env.PATH||'',HOME:process.env.HOME||'/home/pwuser',NODE_ENV:process.env.NODE_ENV||'',PLAYWRIGHT_BROWSERS_PATH:process.env.PLAYWRIGHT_BROWSERS_PATH||'',GLITCHFIX_ALLOW_LOCAL_TEST_TARGETS:process.env.GLITCHFIX_ALLOW_LOCAL_TEST_TARGETS||'',CI:process.env.CI||''};
+    const workerEnv={PATH:process.env.PATH||'',HOME:process.env.HOME||'/home/pwuser',NODE_ENV:process.env.NODE_ENV||'',GLITCHFIX_ALLOW_LOCAL_TEST_TARGETS:process.env.GLITCHFIX_ALLOW_LOCAL_TEST_TARGETS||''};
+    if(process.env.PLAYWRIGHT_BROWSERS_PATH) workerEnv.PLAYWRIGHT_BROWSERS_PATH=process.env.PLAYWRIGHT_BROWSERS_PATH;
+    if(process.env.CI) workerEnv.CI=process.env.CI;
     const child=spawn(process.execPath,[join(root,'browser-worker.js')],{env:workerEnv,stdio:['pipe','pipe','pipe']});
     let stdout='',stderr='',finished=false;
     const timer=setTimeout(()=>{child.kill('SIGKILL');if(!finished){finished=true;rejectPromise(Error('Browser test timed out after 35 seconds.'));}},35000);
