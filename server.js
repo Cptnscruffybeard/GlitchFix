@@ -14,10 +14,10 @@ const statePath = join(dataDir, 'state.json');
 const port = Number(process.env.PORT || 3000);
 const apiToken = process.env.GLITCHFIX_API_TOKEN || '';
 const rateWindows = new Map();
-const state = { runs: [], projects: [], tickets: [] };
+const state = { runs: [], projects: [], tickets: [], feedback: [] };
 const securityHeaders = { 'x-content-type-options':'nosniff', 'x-frame-options':'DENY', 'referrer-policy':'no-referrer', 'permissions-policy':'camera=(), microphone=(), geolocation=()', 'cache-control':'no-store' };
 const json = (res, status, value) => { res.writeHead(status, { ...securityHeaders, 'content-type':'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
-async function loadState() { try { const saved = JSON.parse(await readFile(statePath,'utf8')); state.runs = saved.runs || []; state.projects = saved.projects || []; state.tickets = saved.tickets || []; } catch {} }
+async function loadState() { try { const saved = JSON.parse(await readFile(statePath,'utf8')); state.runs = saved.runs || []; state.projects = saved.projects || []; state.tickets = saved.tickets || []; state.feedback = saved.feedback || []; } catch {} }
 async function saveState() { await mkdir(dataDir,{recursive:true}); await writeFile(statePath,JSON.stringify(state,null,2)); }
 function privateIp(ip) {
   if (net.isIPv4(ip)) { const a=ip.split('.').map(Number); return a[0]===10 || a[0]===127 || a[0]===0 || a[0]===169&&a[1]===254 || a[0]===172&&a[1]>=16&&a[1]<=31 || a[0]===192&&a[1]===168 || a[0]>=224 || a[0]===100&&a[1]>=64&&a[1]<=127; }
@@ -98,7 +98,8 @@ const app = http.createServer(async (req,res) => {
     if(req.method==='GET'&&u.pathname==='/api/health') return json(res,200,{status:'ok',app:'GlitchFix',version:'0.3.0'});
     if(req.method==='GET'&&u.pathname==='/api/runs') return json(res,200,{runs:state.runs.slice(0,50),projects:state.projects});
     if(req.method==='GET'&&u.pathname==='/api/agents') return json(res,200,{agents:[{name:'Triage Agent',role:'Severity and prioritization'},{name:'Security Agent',role:'Security-related findings'},{name:'Reliability Agent',role:'Availability and response contracts'},{name:'Root-Cause Agent',role:'Hypothesis generation from evidence'},{name:'Ticket Agent',role:'Draft actionable tickets'}],mode:'deterministic-multi-agent',disclaimer:'Rule-based specialist passes, not trained AI models.'});
-    if(req.method==='GET'&&u.pathname==='/api/tickets') return json(res,200,{tickets:state.tickets.slice(0,200)});
+    if(req.method==='GET'&&u.pathname==='/api/tickets') return json(res,200,{tickets:state.tickets.slice(0,200)});\n    if(req.method==='GET'&&u.pathname==='/api/feedback') return json(res,200,{feedbackCount:state.feedback.length,labels:Object.fromEntries(['useful','incorrect','partially-correct'].map(label=>[label,state.feedback.filter(item=>item.label===label).length])),feedback:state.feedback.slice(0,100)});
+    if(req.method==='POST'&&/^\/api\/tickets\/[^/]+\/feedback$/.test(u.pathname)) { const parts=u.pathname.split('/'); const id=decodeURIComponent(parts[3]); const b=await bodyOf(req); if(!['useful','incorrect','partially-correct'].includes(b.label)) return json(res,400,{error:'Feedback label must be useful, incorrect, or partially-correct.'}); const ticket=state.tickets.find(x=>x.id===id); if(!ticket) return json(res,404,{error:'Ticket not found.'}); const entry={id:crypto.randomUUID(),ticketId:id,runId:ticket.runId,label:b.label,note:String(b.note||'').slice(0,1000),createdAt:new Date().toISOString()}; state.feedback.unshift(entry); state.feedback=state.feedback.slice(0,1000); ticket.feedbackLabel=b.label; ticket.feedbackAt=entry.createdAt; await saveState(); return json(res,201,{feedback:entry,ticket}); }
     if(req.method==='POST'&&u.pathname.startsWith('/api/tickets/')) { const id=decodeURIComponent(u.pathname.slice('/api/tickets/'.length)); const b=await bodyOf(req); const ticket=state.tickets.find(x=>x.id===id); if(!ticket) return json(res,404,{error:'Ticket not found.'}); if(!['open','in-progress','resolved','wont-fix'].includes(b.status)) return json(res,400,{error:'Status must be open, in-progress, resolved, or wont-fix.'}); ticket.status=b.status; ticket.updatedAt=new Date().toISOString(); await saveState(); return json(res,200,{ticket}); }
     if(req.method==='POST'&&u.pathname==='/api/run') {
       const b=await bodyOf(req); const kind=['demo','site','api','repo'].includes(b.kind)?b.kind:'demo'; const started=Date.now();
