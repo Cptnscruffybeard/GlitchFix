@@ -28,6 +28,10 @@ function agent(name, role, findings) {
 
 export function runAgentPipeline(results, context = {}) {
   const failed = results.filter(item => ['failed', 'error'].includes(item.status));
+  const priorTickets = Array.isArray(context.tickets) ? context.tickets : [];
+  const feedback = Array.isArray(context.feedback) ? context.feedback : [];
+  const priorLabel = item => { const ticket=priorTickets.find(t=>String(t.title||'').endsWith(item.name)&&t.feedbackLabel); return ticket ? { label:ticket.feedbackLabel, count:feedback.filter(f=>f.ticketId===ticket.id).length } : null; };
+  const confidenceFor = item => { const prior=priorLabel(item); return prior?.label==='incorrect'?0.4:prior?.label==='useful'?0.78:prior?.label==='partially-correct'?0.58:0.65; };
   const security = failed.filter(item => SECURITY_TERMS.test(`${item.name} ${item.detail}`));
   const reliability = failed.filter(item => RELIABILITY_TERMS.test(`${item.name} ${item.detail}`));
   const agents = [
@@ -45,13 +49,13 @@ export function runAgentPipeline(results, context = {}) {
     }))),
     agent('Root-Cause Agent', 'Ranks likely causes using check names and evidence; conclusions are hypotheses.', failed.map(item => ({
       check: item.name, likelyCause: item.detail, nextStep: adviceFor(item),
-      confidence: 0.65, verified: false
+      confidence: confidenceFor(item), priorFeedback: priorLabel(item), verified: false
     }))),
     agent('Ticket Agent', 'Creates actionable draft tickets from findings, without filing external tickets.', failed.map(item => ({
       title: `[${severityFor(item).toUpperCase()}] ${item.name}`.slice(0, 180),
       severity: severityFor(item), description: item.detail,
       acceptanceCriteria: ['Reproduce the issue reliably', 'Implement a scoped fix', 'Add a regression test', 'Rerun checks and attach evidence'],
-      status: 'open', source: 'GlitchFix'
+      priorFeedback: priorLabel(item), status: 'open', source: 'GlitchFix'
     })))
   ];
   const uniqueFindings = failed.map(item => ({
@@ -68,6 +72,7 @@ export function runAgentPipeline(results, context = {}) {
     agents,
     findings: uniqueFindings,
     tickets: agents.find(item => item.name === 'Ticket Agent').findings,
+    learningSignals: { reviewedExamples: feedback.length, labels: Object.fromEntries(['useful','incorrect','partially-correct'].map(label=>[label,feedback.filter(item=>item.label===label).length])), method: 'reviewed-feedback-confidence-adjustment', modelTraining: false },
     context: { kind: String(context.kind || 'unknown'), target: String(context.target || '') }
   };
 }
