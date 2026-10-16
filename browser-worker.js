@@ -5,14 +5,22 @@ import net from 'node:net';
 function isPrivate(ip) {
   if (net.isIPv4(ip)) {
     const a=ip.split('.').map(Number);
-    return a[0]===10 || a[0]===127 || a[0]===0 || (a[0]===169&&a[1]===254) ||
-      (a[0]===172&&a[1]>=16&&a[1]<=31) || (a[0]===192&&a[1]===168) ||
-      a[0]>=224 || (a[0]===100&&a[1]>=64&&a[1]<=127);
+    return a[0]===0 || a[0]===10 || a[0]===127 || a[0]>=224 ||
+      (a[0]===100&&a[1]>=64&&a[1]<=127) ||
+      (a[0]===169&&a[1]===254) ||
+      (a[0]===172&&a[1]>=16&&a[1]<=31) ||
+      (a[0]===192&&(a[1]===0||a[1]===2||a[1]===168)) ||
+      (a[0]===192&&a[1]===88&&a[2]===99) ||
+      (a[0]===198&&(a[1]===18||a[1]===19||a[1]===51&&a[2]===100)) ||
+      (a[0]===203&&a[1]===0&&a[2]===113);
   }
   if (net.isIPv6(ip)) {
     const x=ip.toLowerCase();
-    return x==='::1'||x==='::'||x.startsWith('fc')||x.startsWith('fd')||
-      x.startsWith('fe80:')||x.startsWith('::ffff:127.')||x.startsWith('::ffff:10.');
+    const first=parseInt(x.split(':')[0]||'0',16);
+    return x==='::1'||x==='::'||x.startsWith('::ffff:')||
+      x.startsWith('fc')||x.startsWith('fd')||
+      /^fe[89ab]/.test(x)||x.startsWith('ff')||
+      x.startsWith('2001:db8:')||!(first>=0x2000&&first<=0x3fff);
   }
   return true;
 }
