@@ -159,6 +159,12 @@ test('browser QA captures page health signals and a screenshot', async () => {
   const screenshot = data.run.results.find(item => item.name === 'Viewport screenshot');
   assert.ok(screenshot);
   assert.match(screenshot.evidence.dataUrl, /^data:image\/jpeg;base64,/);
+  const history = await fetch(`${base}/api/runs`).then(r => r.json());
+  const summaryScreenshot = history.runs.find(item => item.id === data.run.id).results.find(item => item.name === 'Viewport screenshot');
+  assert.equal(summaryScreenshot.evidence.screenshotAvailable, true);
+  assert.equal(summaryScreenshot.evidence.dataUrl, undefined);
+  const full = await fetch(`${base}/api/runs/${data.run.id}`).then(r => r.json());
+  assert.match(full.run.results.find(item => item.name === 'Viewport screenshot').evidence.dataUrl, /^data:image\/jpeg;base64,/);
 });
 
 test('production APIs fail closed without an access token', async () => {
