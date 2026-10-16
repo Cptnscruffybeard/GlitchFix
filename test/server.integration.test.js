@@ -152,6 +152,10 @@ test('browser QA captures page health signals and a screenshot', async () => {
   assert.equal(response.status, 200, data.error || 'browser run failed');
   assert.equal(data.run.kind, 'browser');
   assert.ok(data.run.results.some(item => item.name === 'Browser navigation'));
+  const consoleCheck = data.run.results.find(item => item.name === 'Browser console errors');
+  const pageErrorCheck = data.run.results.find(item => item.name === 'Uncaught page errors');
+  assert.equal(consoleCheck.status, 'passed', JSON.stringify(consoleCheck.evidence));
+  assert.equal(pageErrorCheck.status, 'passed', JSON.stringify(pageErrorCheck.evidence));
   const screenshot = data.run.results.find(item => item.name === 'Viewport screenshot');
   assert.ok(screenshot);
   assert.match(screenshot.evidence.dataUrl, /^data:image\/jpeg;base64,/);
