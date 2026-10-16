@@ -39,7 +39,7 @@ async function safeUrl(raw) {
 async function request(raw, method='GET') {
   const u = await safeUrl(raw);
   const abort = AbortSignal.timeout(9000);
-  return fetch(u,{method,redirect:'manual',signal:abort,headers:{'user-agent':'GlitchFix-Beta/0.3 authorized-qa-checks'}});
+  return fetch(u,{method,redirect:'manual',signal:abort,headers:{'user-agent':'GlitchFix-Beta/0.4 authorized-qa-checks'}});
 }
 const check = (name,status,detail,evidence={}) => ({name,status,detail,evidence});
 async function runChecks(kind, body={}) {
@@ -74,10 +74,10 @@ async function runChecks(kind, body={}) {
     const m=String(body.url||'').match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/?$/i);
     if(!m) throw Error('Use a public GitHub repository URL like https://github.com/owner/repo.');
     const owner=m[1], name=m[2].replace(/\.git$/,'');
-    const meta=await fetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`,{headers:{'user-agent':'GlitchFix-Beta/0.2','accept':'application/vnd.github+json'},signal:AbortSignal.timeout(9000)});
+    const meta=await fetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`,{headers:{'user-agent':'GlitchFix-Beta/0.4','accept':'application/vnd.github+json'},signal:AbortSignal.timeout(9000)});
     if(!meta.ok) throw Error(`GitHub metadata request returned HTTP ${meta.status}.`);
     const info=await meta.json(); results.push(check('Repository accessible','passed',`Public repository found: ${info.full_name}.`,{stars:info.stargazers_count,defaultBranch:info.default_branch}));
-    const raw=await fetch(`https://raw.githubusercontent.com/${owner}/${name}/${info.default_branch}/package.json`,{headers:{'user-agent':'GlitchFix-Beta/0.2'},signal:AbortSignal.timeout(9000)});
+    const raw=await fetch(`https://raw.githubusercontent.com/${owner}/${name}/${info.default_branch}/package.json`,{headers:{'user-agent':'GlitchFix-Beta/0.4'},signal:AbortSignal.timeout(9000)});
     if(!raw.ok) results.push(check('package.json manifest','failed','No package.json found on the default branch.'));
     else { let pkg; try {pkg=await raw.json();} catch {throw Error('package.json exists but is invalid JSON.');} results.push(check('package.json parses','passed',`Parsed ${pkg.name||'unnamed package'}.`)); for(const s of ['test','lint','build']) results.push(check(`Script: ${s}`,pkg.scripts&&pkg.scripts[s]?'passed':'failed',pkg.scripts&&pkg.scripts[s]?'Script is defined.':'No matching npm script is defined.')); }
   }
@@ -95,7 +95,7 @@ const app = http.createServer(async (req,res) => {
       if (rateWindows.size>5000) for (const [ip,item] of rateWindows) if (now-item.startedAt>=60000) rateWindows.delete(ip);
       if (window.count>120) return json(res,429,{error:'Rate limit exceeded. Wait one minute before trying again.'});
     }
-    if(req.method==='GET'&&u.pathname==='/api/health') return json(res,200,{status:'ok',app:'GlitchFix',version:'0.3.0'});
+    if(req.method==='GET'&&u.pathname==='/api/health') return json(res,200,{status:'ok',app:'GlitchFix',version:'0.4.0'});
     if(req.method==='GET'&&u.pathname==='/api/runs') return json(res,200,{runs:state.runs.slice(0,50),projects:state.projects});
     if(req.method==='GET'&&u.pathname==='/api/agents') return json(res,200,{agents:[{name:'Triage Agent',role:'Severity and prioritization'},{name:'Security Agent',role:'Security-related findings'},{name:'Reliability Agent',role:'Availability and response contracts'},{name:'Root-Cause Agent',role:'Hypothesis generation from evidence'},{name:'Ticket Agent',role:'Draft actionable tickets'}],mode:'deterministic-multi-agent',disclaimer:'Rule-based specialist passes, not trained AI models.'});
     if(req.method==='GET'&&u.pathname==='/api/tickets') return json(res,200,{tickets:state.tickets.slice(0,200)});\n    if(req.method==='GET'&&u.pathname==='/api/feedback') return json(res,200,{feedbackCount:state.feedback.length,labels:Object.fromEntries(['useful','incorrect','partially-correct'].map(label=>[label,state.feedback.filter(item=>item.label===label).length])),feedback:state.feedback.slice(0,100)});
