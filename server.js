@@ -42,6 +42,7 @@ async function request(raw, method='GET') {
   return fetch(u,{method,redirect:'manual',signal:abort,headers:{'user-agent':'GlitchFix-Beta/0.4 authorized-qa-checks'}});
 }
 const check = (name,status,detail,evidence={}) => ({name,status,detail,evidence});
+function investigate(results, context={}) { return runAgentPipeline(results, context); }
 async function runChecks(kind, body={}) {
   const results=[];
   if (kind==='demo') return [
