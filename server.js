@@ -48,6 +48,18 @@ function privateIp(ip) {
   }
   return true;
 }
+function safeStoredUrl(raw) {
+  try {
+    const u=new URL(String(raw));
+    u.username=''; u.password=''; u.hash='';
+    for (const key of [...u.searchParams.keys()]) if (/token|secret|key|password|auth|signature|session|credential|api.?key/i.test(key)) u.searchParams.delete(key);
+    return u.href.slice(0,2048);
+  } catch { return ''; }
+}
+function safeDisplayTarget(raw) {
+  try { const u=new URL(String(raw)); u.username=''; u.password=''; u.search=''; u.hash=''; return (u.origin+u.pathname).slice(0,2048); }
+  catch { return raw ? '[invalid target URL]' : 'GlitchFix demo fixture'; }
+}
 async function safeUrl(raw) {
   if (String(raw||'').length>2048) throw Error('URL exceeds the 2048-character limit.');
   let u; try { u = new URL(raw); } catch { throw Error('Enter a valid absolute URL.'); }
@@ -164,8 +176,8 @@ const app = http.createServer(async (req,res) => {
     if(req.method==='POST'&&u.pathname==='/api/run') {
       const b=await bodyOf(req); const kind=['demo','site','api','repo','browser'].includes(b.kind)?b.kind:'demo'; const started=Date.now();
       let results; try { results=await runChecks(kind,b); } catch(e) { results=[check('Run setup','error',e.message)]; }
-      const inv=investigate(results,{kind,target:b.url||'GlitchFix demo fixture'}); await enrichWithAI(results,inv); const input={url:String(b.url||''),path:String(b.path||'/api/health'),expectedStatus:Number(b.expectedStatus||200),expectedJsonKey:String(b.expectedJsonKey||''),method:String(b.method||'GET')};
-      const run={id:crypto.randomUUID(),kind,target:b.url||'GlitchFix demo fixture',input,createdAt:new Date().toISOString(),durationMs:Date.now()-started,results,investigation:inv};
+      const inv=investigate(results,{kind,target:b.url||'GlitchFix demo fixture'}); await enrichWithAI(results,inv); const input={url:safeStoredUrl(b.url),path:String(b.path||'/api/health'),expectedStatus:Number(b.expectedStatus||200),expectedJsonKey:String(b.expectedJsonKey||''),method:String(b.method||'GET')};
+      const run={id:crypto.randomUUID(),kind,target:safeDisplayTarget(b.url),input,createdAt:new Date().toISOString(),durationMs:Date.now()-started,results,investigation:inv};
       state.runs.unshift(run); state.runs=state.runs.slice(0,100);
       for (const draft of inv.tickets || []) state.tickets.unshift({id:crypto.randomUUID(),runId:run.id,target:run.target,createdAt:run.createdAt,...draft});
       state.tickets=state.tickets.slice(0,300); await saveState(); return json(res,200,{run});
