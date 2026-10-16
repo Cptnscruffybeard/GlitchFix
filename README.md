@@ -21,7 +21,7 @@ Open http://localhost:3000 and choose **Run Demo Test**. No third-party packages
 - Public GitHub repository manifest inspection: repository metadata, package.json parsing, and test/lint/build script presence.
 - Local JSON persistence under `data/state.json` (override with `GLITCHFIX_DATA_DIR`).
 - Heuristic bug investigation and proposed fix summaries.
-- Optional server-side AI investigation via `OPENAI_API_KEY`, `OPENAI_MODEL` (default `gpt-4o-mini`) and `OPENAI_BASE_URL`.
+- Rule-based investigation summaries with proposed next steps; AI-powered diagnosis is not yet enabled in the repository build.
 - Rerun workflow for previous checks.
 - URL validation for HTTP(S), credentials, localhost, common private/reserved IPs, and DNS-resolved private/reserved addresses. Redirects are not followed.
 - GitHub Actions, Dockerfile, Render Blueprint, and unit tests.
@@ -38,7 +38,7 @@ Open http://localhost:3000 and choose **Run Demo Test**. No third-party packages
 
 ## Optional AI setup
 
-Set `OPENAI_API_KEY` on the server, optionally configure `OPENAI_MODEL` and `OPENAI_BASE_URL`, then restart. AI output is a suggestion, not proof of root cause or a verified fix. Never put API keys in frontend code.
+AI-powered diagnosis is planned but not enabled in the current repository build. Any future AI output must be treated as a suggestion, not proof of root cause or a verified fix. API keys must remain server-side.
 
 ## Deployment
 
