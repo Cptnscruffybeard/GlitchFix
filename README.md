@@ -28,7 +28,7 @@ Open http://localhost:3000 and choose **Run Demo Test** or **Run Browser QA**. R
 - A human-reviewed feedback dataset that adjusts confidence for matching future findings and can support later retrieval/model evaluation; it does not fine-tune model weights.
 - Optional live AI diagnosis through the OpenAI Responses API with strict JSON-schema output validation.
 - Rerun workflow for previous checks.
-- URL validation for HTTP(S), credentials, localhost, common private/reserved IPs, and DNS-resolved private/reserved addresses. Redirects are not followed.
+- URL validation for HTTP(S), credentials, common private/reserved IP ranges, and DNS-resolved private/reserved addresses. Website/API smoke checks do not follow redirects; Chromium follows redirects while filtering each network request.
 - Security headers on API and static responses.
 - Optional bearer-token protection, fail-closed production API access, and basic per-IP rate limiting.
 - Automated integration coverage for health, security headers, history, projects, ticket feedback, production API locking, and real Chromium browser QA.
@@ -53,7 +53,7 @@ To enable live AI diagnosis, set `OPENAI_API_KEY`, set `GLITCHFIX_AI_ENABLED=tru
 
 ## Production access protection
 
-Set `GLITCHFIX_API_TOKEN` to a long random secret in the hosting provider's secret/environment settings. In `NODE_ENV=production`, API routes other than `/api/health` fail closed if the token is missing. The dashboard accepts the token and keeps it in the current browser tab's session storage. Rotate the token if it is exposed. Basic in-process rate limiting is not a substitute for gateway-level rate limiting or authentication with individual user accounts.
+Set `GLITCHFIX_API_TOKEN` to a long random secret of at least 32 characters in the hosting provider's secret/environment settings. In `NODE_ENV=production`, API routes other than `/api/health` fail closed if the token is missing. The dashboard accepts the token and keeps it in the current browser tab's session storage. Rotate the token if it is exposed. Basic in-process rate limiting is not a substitute for gateway-level rate limiting or authentication with individual user accounts.
 
 ## Deployment
 
