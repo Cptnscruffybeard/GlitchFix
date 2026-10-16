@@ -199,7 +199,7 @@ test('production APIs fail closed without an access token', async () => {
 test('production API rejects missing tokens and accepts the configured bearer token', async () => {
   const port = await freePort();
   const isolatedDir = await mkdtemp(join(tmpdir(), 'glitchfix-token-test-'));
-  const secret = 'test-only-long-random-token';
+  const secret = 'test-only-long-random-token-1234567890';
   const child = spawn(process.execPath, [new URL('../server.js', import.meta.url).pathname], {
     env: { ...process.env, NODE_ENV: 'production', GLITCHFIX_API_TOKEN: secret, PORT: String(port), GLITCHFIX_DATA_DIR: isolatedDir },
     stdio: 'ignore'
