@@ -35,7 +35,7 @@ async function safeUrl(raw) {
 async function request(raw, method='GET') {
   const u = await safeUrl(raw);
   const abort = AbortSignal.timeout(9000);
-  return fetch(u,{method,redirect:'manual',signal:abort,headers:{'user-agent':'GlitchFix-Beta/0.2 authorized-qa-checks'}});
+  return fetch(u,{method,redirect:'manual',signal:abort,headers:{'user-agent':'GlitchFix-Beta/0.3 authorized-qa-checks'}});
 }
 const check = (name,status,detail,evidence={}) => ({name,status,detail,evidence});
 function investigate(results) {
@@ -87,7 +87,7 @@ async function bodyOf(req) { let s=''; for await (const chunk of req) { s+=chunk
 const app = http.createServer(async (req,res) => {
   try {
     const u=new URL(req.url,'http://localhost');
-    if(req.method==='GET'&&u.pathname==='/api/health') return json(res,200,{status:'ok',app:'GlitchFix',version:'0.2.0'});
+    if(req.method==='GET'&&u.pathname==='/api/health') return json(res,200,{status:'ok',app:'GlitchFix',version:'0.3.0'});
     if(req.method==='GET'&&u.pathname==='/api/runs') return json(res,200,{runs:state.runs.slice(0,50),projects:state.projects});
     if(req.method==='POST'&&u.pathname==='/api/run') {
       const b=await bodyOf(req); const kind=['demo','site','api','repo'].includes(b.kind)?b.kind:'demo'; const started=Date.now();
