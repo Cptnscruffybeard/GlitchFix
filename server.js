@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +20,12 @@ const state = { runs: [], projects: [], tickets: [], feedback: [] };
 const securityHeaders = { 'x-content-type-options':'nosniff', 'x-frame-options':'DENY', 'referrer-policy':'no-referrer', 'permissions-policy':'camera=(), microphone=(), geolocation=()', 'cross-origin-resource-policy':'same-origin', 'x-permitted-cross-domain-policies':'none', 'content-security-policy':"default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'", 'cache-control':'no-store' };
 const json = (res, status, value) => { res.writeHead(status, { ...securityHeaders, 'content-type':'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
 async function loadState() { try { const saved = JSON.parse(await readFile(statePath,'utf8')); state.runs = saved.runs || []; state.projects = saved.projects || []; state.tickets = saved.tickets || []; state.feedback = saved.feedback || []; } catch {} }
-async function saveState() { await mkdir(dataDir,{recursive:true}); await writeFile(statePath,JSON.stringify(state,null,2)); }
+let saveChain=Promise.resolve();
+function saveState() {
+  const snapshot=JSON.stringify(state,null,2);
+  saveChain=saveChain.catch(()=>{}).then(async()=>{ await mkdir(dataDir,{recursive:true}); const temporary=statePath+'.tmp'; await writeFile(temporary,snapshot); await rename(temporary,statePath); });
+  return saveChain;
+}
 function privateIp(ip) {
   if (net.isIPv4(ip)) {
     const a=ip.split('.').map(Number);
