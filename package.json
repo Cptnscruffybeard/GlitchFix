@@ -1,6 +1,6 @@
 {
   "name": "glitchfix-beta",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "GlitchFix: AI-assisted automated website, API, and public GitHub repository QA beta",
   "type": "module",
