@@ -71,7 +71,13 @@ function investigate(results, context={}) { return runAgentPipeline(results, {..
 async function enrichWithAI(results, investigation) {
   if (process.env.GLITCHFIX_AI_ENABLED !== 'true') return;
   if (!process.env.OPENAI_API_KEY) { investigation.aiDiagnosis={status:'unavailable',message:'GLITCHFIX_AI_ENABLED is true but OPENAI_API_KEY is not configured.',verified:false}; return; }
-  try { investigation.aiDiagnosis={status:'completed',...await diagnoseWithOpenAI({results,feedback:state.feedback,apiKey:process.env.OPENAI_API_KEY,model:process.env.GLITCHFIX_AI_MODEL||'gpt-6-astra'})}; }
+  try {
+    const diagnosis=await diagnoseWithOpenAI({results,feedback:state.feedback,apiKey:process.env.OPENAI_API_KEY,model:process.env.GLITCHFIX_AI_MODEL||'gpt-6-astra'});
+    investigation.aiDiagnosis={status:'completed',...diagnosis};
+    const normalizeTitle=item=>String(item.title||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+    const known=new Set([...(investigation.tickets||[]),...state.tickets].map(normalizeTitle));
+    for(const ticket of diagnosis.ticketSuggestions||[]) if(!known.has(normalizeTitle(ticket))) { investigation.tickets.push({...ticket,status:'open',source:'AI diagnosis',priorFeedback:null}); known.add(normalizeTitle(ticket)); }
+  }
   catch(error) { investigation.aiDiagnosis={status:'unavailable',message:String(error.message||'AI diagnosis failed').slice(0,500),verified:false}; }
 }
 async function runBrowserChecks(rawUrl) {
