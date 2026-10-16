@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: glitchfix
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    disk:
+      name: glitchfix-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GLITCHFIX_DATA_DIR
+        value: /app/data
