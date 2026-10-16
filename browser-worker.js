@@ -25,6 +25,8 @@ function isPrivate(ip) {
   return true;
 }
 
+function safeDisplayUrl(raw) { try { const u=new URL(raw); u.username=''; u.password=''; u.search=''; u.hash=''; return u.href.slice(0,500); } catch { return '[unparseable URL]'; } }
+
 const allowLocal = process.env.GLITCHFIX_ALLOW_LOCAL_TEST_TARGETS === '1';
 const dnsCache = new Map();
 async function validateRequestUrl(raw) {
@@ -56,11 +58,11 @@ async function main(input) {
     page.setDefaultTimeout(5000);
     page.on('console',msg=>{if(msg.type()==='error'&&consoleErrors.length<30)consoleErrors.push(msg.text().slice(0,500));});
     page.on('pageerror',err=>{if(pageErrors.length<30)pageErrors.push(String(err.message||err).slice(0,500));});
-    page.on('requestfailed',req=>{if(failedRequests.length<30)failedRequests.push({url:req.url().slice(0,500),failure:req.failure()?.errorText||'request failed'});});
-    page.on('response',res=>{if(res.status()>=400&&badResponses.length<30)badResponses.push({url:res.url().slice(0,500),status:res.status()});});
+    page.on('requestfailed',req=>{if(failedRequests.length<30)failedRequests.push({url:safeDisplayUrl(req.url()),failure:req.failure()?.errorText||'request failed'});});
+    page.on('response',res=>{if(res.status()>=400&&badResponses.length<30)badResponses.push({url:safeDisplayUrl(res.url()),status:res.status()});});
     await page.route('**/*',async route=>{
       try { await validateRequestUrl(route.request().url()); await route.continue(); }
-      catch(error) { blockedRequests.push({url:route.request().url().slice(0,500),reason:error.message}); await route.abort('blockedbyclient'); }
+      catch(error) { blockedRequests.push({url:safeDisplayUrl(route.request().url()),reason:error.message}); await route.abort('blockedbyclient'); }
     });
     const response=await page.goto(target.href,{waitUntil:'domcontentloaded',timeout:15000});
     await page.waitForTimeout(750);
@@ -68,7 +70,7 @@ async function main(input) {
     const headingCount=await page.locator('h1').count().catch(()=>0);
     const screenshot=await page.screenshot({type:'jpeg',quality:45,fullPage:false,timeout:5000});
     const results=[
-      {name:'Browser navigation',status:response&&response.status()<400?'passed':'failed',detail:response?('Received HTTP '+response.status()+'.'):'No main-document response.',evidence:{status:response?.status()||null,url:page.url(),title}},
+      {name:'Browser navigation',status:response&&response.status()<400?'passed':'failed',detail:response?('Received HTTP '+response.status()+'.'):'No main-document response.',evidence:{status:response?.status()||null,url:safeDisplayUrl(page.url()),title}},
       {name:'Page title',status:title.trim()?'passed':'failed',detail:title.trim()?'Page has a document title.':'Document title is empty.',evidence:{title}},
       {name:'Main heading',status:headingCount>0?'passed':'failed',detail:headingCount?'Found '+headingCount+' h1 heading(s).':'No h1 heading found.',evidence:{headingCount}},
       {name:'Browser console errors',status:consoleErrors.length?'failed':'passed',detail:consoleErrors.length?consoleErrors.length+' console error(s) captured.':'No console errors captured.',evidence:{items:consoleErrors}},
@@ -78,7 +80,7 @@ async function main(input) {
       {name:'Network safety filter',status:blockedRequests.length?'skipped':'passed',detail:blockedRequests.length?blockedRequests.length+' request(s) blocked by private-network filter.':'No private-network requests blocked.',evidence:{items:blockedRequests}},
       {name:'Viewport screenshot',status:'passed',detail:'Captured a 1280×720 viewport screenshot.',evidence:{dataUrl:'data:image/jpeg;base64,'+screenshot.toString('base64')}}
     ];
-    return {results,meta:{title,url:page.url(),browser:'Chromium',blockedRequestCount:blockedRequests.length}};
+    return {results,meta:{title,url:safeDisplayUrl(page.url()),browser:'Chromium',blockedRequestCount:blockedRequests.length}};
   } finally {
     if(browser) await browser.close().catch(()=>{});
   }
