@@ -5,6 +5,7 @@ import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dns from 'node:dns/promises';
 import net from 'node:net';
+import { spawn } from 'node:child_process';
 import { runAgentPipeline } from './agents.js';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
@@ -28,8 +29,9 @@ async function safeUrl(raw) {
   let u; try { u = new URL(raw); } catch { throw Error('Enter a valid absolute URL.'); }
   if (!['http:','https:'].includes(u.protocol)) throw Error('Only HTTP and HTTPS URLs are allowed.');
   if (u.username || u.password) throw Error('URLs containing credentials are blocked.');
-  if (u.hostname==='localhost' || u.hostname.endsWith('.localhost') || u.hostname.endsWith('.local')) throw Error('Local hostnames are blocked.');
-  if (net.isIP(u.hostname)) { if (privateIp(u.hostname)) throw Error('Private or reserved IP addresses are blocked.'); }
+  const allowLocal = process.env.GLITCHFIX_ALLOW_LOCAL_TEST_TARGETS === '1';
+  if (u.hostname==='localhost' || u.hostname.endsWith('.localhost') || u.hostname.endsWith('.local')) { if(!allowLocal) throw Error('Local hostnames are blocked.'); else return u; }
+  if (net.isIP(u.hostname)) { if (privateIp(u.hostname) && !allowLocal) throw Error('Private or reserved IP addresses are blocked.'); }
   else {
     let rows; try { rows = await dns.lookup(u.hostname,{all:true,verbatim:true}); } catch { throw Error('Host could not be resolved.'); }
     if (!rows.length || rows.some(x=>privateIp(x.address))) throw Error('Host resolves to a private or reserved address.');
@@ -43,8 +45,23 @@ async function request(raw, method='GET') {
 }
 const check = (name,status,detail,evidence={}) => ({name,status,detail,evidence});
 function investigate(results, context={}) { return runAgentPipeline(results, context); }
+async function runBrowserChecks(rawUrl) {
+  const target=await safeUrl(rawUrl);
+  return await new Promise((resolvePromise,rejectPromise)=>{
+    const child=spawn(process.execPath,[join(root,'browser-worker.js')],{env:process.env,stdio:['pipe','pipe','pipe']});
+    let stdout='',stderr='',finished=false;
+    const timer=setTimeout(()=>{child.kill('SIGKILL');if(!finished){finished=true;rejectPromise(Error('Browser test timed out after 35 seconds.'));}},35000);
+    child.stdout.on('data',chunk=>{stdout+=chunk;if(stdout.length>3_000_000)child.kill('SIGKILL');});
+    child.stderr.on('data',chunk=>{stderr+=chunk.toString().slice(0,3000);});
+    child.on('error',error=>{clearTimeout(timer);if(!finished){finished=true;rejectPromise(error);}});
+    child.on('close',code=>{clearTimeout(timer);if(finished)return;finished=true;let data;try{data=JSON.parse(stdout);}catch{rejectPromise(Error('Browser worker returned invalid output. '+stderr.slice(0,500)));return;}if(code!==0||data.error){rejectPromise(Error(data.error||'Browser worker failed. '+stderr.slice(0,500)));return;}resolvePromise(data.results);});
+    child.stdin.end(JSON.stringify({url:target.href}));
+  });
+}
+
 async function runChecks(kind, body={}) {
   const results=[];
+  if (kind==='browser') return await runBrowserChecks(body.url);
   if (kind==='demo') return [
     check('Landing page loads','passed','Demo fixture returned a page.'),
     check('Missing content security policy','failed','Content-Security-Policy header is missing.'),
@@ -104,7 +121,7 @@ const app = http.createServer(async (req,res) => {
     if(req.method==='POST'&&/^\/api\/tickets\/[^/]+\/feedback$/.test(u.pathname)) { const parts=u.pathname.split('/'); const id=decodeURIComponent(parts[3]); const b=await bodyOf(req); if(!['useful','incorrect','partially-correct'].includes(b.label)) return json(res,400,{error:'Feedback label must be useful, incorrect, or partially-correct.'}); const ticket=state.tickets.find(x=>x.id===id); if(!ticket) return json(res,404,{error:'Ticket not found.'}); const entry={id:crypto.randomUUID(),ticketId:id,runId:ticket.runId,label:b.label,note:String(b.note||'').slice(0,1000),createdAt:new Date().toISOString()}; state.feedback.unshift(entry); state.feedback=state.feedback.slice(0,1000); ticket.feedbackLabel=b.label; ticket.feedbackAt=entry.createdAt; await saveState(); return json(res,201,{feedback:entry,ticket}); }
     if(req.method==='POST'&&u.pathname.startsWith('/api/tickets/')) { const id=decodeURIComponent(u.pathname.slice('/api/tickets/'.length)); const b=await bodyOf(req); const ticket=state.tickets.find(x=>x.id===id); if(!ticket) return json(res,404,{error:'Ticket not found.'}); if(!['open','in-progress','resolved','wont-fix'].includes(b.status)) return json(res,400,{error:'Status must be open, in-progress, resolved, or wont-fix.'}); ticket.status=b.status; ticket.updatedAt=new Date().toISOString(); await saveState(); return json(res,200,{ticket}); }
     if(req.method==='POST'&&u.pathname==='/api/run') {
-      const b=await bodyOf(req); const kind=['demo','site','api','repo'].includes(b.kind)?b.kind:'demo'; const started=Date.now();
+      const b=await bodyOf(req); const kind=['demo','site','api','repo','browser'].includes(b.kind)?b.kind:'demo'; const started=Date.now();
       let results; try { results=await runChecks(kind,b); } catch(e) { results=[check('Run setup','error',e.message)]; }
       const inv=investigate(results,{kind,target:b.url||'GlitchFix demo fixture'}); const input={url:String(b.url||''),path:String(b.path||'/api/health'),expectedStatus:Number(b.expectedStatus||200),expectedJsonKey:String(b.expectedJsonKey||''),method:String(b.method||'GET')};
       const run={id:crypto.randomUUID(),kind,target:b.url||'GlitchFix demo fixture',input,createdAt:new Date().toISOString(),durationMs:Date.now()-started,results,investigation:inv};
