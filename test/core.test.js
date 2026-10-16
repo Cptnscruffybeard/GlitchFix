@@ -13,5 +13,6 @@ test('dashboard contains GlitchFix branding and test actions', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
   assert.match(html, /GlitchFix/);
   assert.match(html, /Run Demo Test/);
-  assert.match(html, /Inspect GitHub Repository/);\n  assert.match(html, /Rerun checks/);
+  assert.match(html, /Inspect GitHub Repository/);
+  assert.match(html, /Rerun checks/);
 });
