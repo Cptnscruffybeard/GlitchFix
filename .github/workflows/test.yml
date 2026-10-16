@@ -10,14 +10,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: npm install
+      - name: Install Chromium for browser QA tests
+        run: npx playwright install --with-deps chromium
       - run: npm test
       - name: Health smoke test
         run: |
-          PORT=3137 node server.js > /tmp/glitchfix.log 2>&1 &
-          pid=$!
-          trap 'kill $pid' EXIT
-          for i in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:3137/api/health; then exit 0; fi
+          PORT=3137 GLITCHFIX_DATA_DIR=/tmp/glitchfix-smoke node server.js > /tmp/glitchfix.log 2>&1 &
+          PID=$!
+          trap 'kill $PID 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl --fail http://127.0.0.1:3137/api/health; then exit 0; fi
             sleep 1
           done
           cat /tmp/glitchfix.log
