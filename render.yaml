@@ -15,3 +15,5 @@ services:
         value: production
       - key: GLITCHFIX_DATA_DIR
         value: /app/data
+      - key: GLITCHFIX_API_TOKEN
+        sync: false
