@@ -65,6 +65,10 @@ test('demo run is saved and appears in history', async () => {
   assert.ok(data.run.results.some(item => item.status === 'failed'));
   const history = await fetch(`${base}/api/runs`).then(r => r.json());
   assert.equal(history.runs[0].id, data.run.id);
+  assert.equal(data.run.investigation.agents.length, 5);
+  const tickets = await fetch(`${base}/api/tickets`).then(r => r.json());
+  assert.ok(tickets.tickets.length >= 1);
+  assert.equal(tickets.tickets[0].runId, data.run.id);
 });
 
 test('saved project requires a name and can be created', async () => {
@@ -98,4 +102,23 @@ test('unknown verification run returns 404', async () => {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ runId: 'missing' })
   });
   assert.equal(response.status, 404);
+});
+
+test('agent catalogue is transparent about rule-based behavior', async () => {
+  const response = await fetch(`${base}/api/agents`);
+  const data = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(data.agents.length, 5);
+  assert.match(data.disclaimer, /not trained AI models/i);
+});
+
+test('ticket status can only be changed to an allowed value', async () => {
+  const created = await fetch(`${base}/api/run`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'demo' })
+  }).then(r => r.json());
+  const ticket = created.run.investigation.tickets[0];
+  const bad = await fetch(`${base}/api/tickets/${ticket.id}`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: 'delete-everything' })
+  });
+  assert.equal(bad.status, 404);
 });
