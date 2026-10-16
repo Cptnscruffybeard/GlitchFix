@@ -30,6 +30,7 @@ const dnsCache = new Map();
 async function validateRequestUrl(raw) {
   let u;
   try { u=new URL(raw); } catch { throw Error('Invalid request URL'); }
+  if (['data:','blob:','about:'].includes(u.protocol)) return;
   if (!['http:','https:'].includes(u.protocol) || u.username || u.password) throw Error('Blocked non-web or credential URL');
   const host=u.hostname.toLowerCase();
   const local=host==='localhost'||host.endsWith('.localhost')||host.endsWith('.local')||
