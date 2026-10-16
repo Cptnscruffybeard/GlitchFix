@@ -99,10 +99,11 @@ async function runBrowserChecks(rawUrl) {
     const workerEnv={PATH:process.env.PATH||'',HOME:process.env.HOME||'/home/pwuser',NODE_ENV:process.env.NODE_ENV||'',GLITCHFIX_ALLOW_LOCAL_TEST_TARGETS:process.env.GLITCHFIX_ALLOW_LOCAL_TEST_TARGETS||''};
     if(process.env.PLAYWRIGHT_BROWSERS_PATH) workerEnv.PLAYWRIGHT_BROWSERS_PATH=process.env.PLAYWRIGHT_BROWSERS_PATH;
     if(process.env.CI) workerEnv.CI=process.env.CI;
-    const child=spawn(process.execPath,[join(root,'browser-worker.js')],{env:workerEnv,stdio:['pipe','pipe','pipe']});
+    const child=spawn(process.execPath,[join(root,'browser-worker.js')],{env:workerEnv,stdio:['pipe','pipe','pipe'],detached:process.platform!=='win32'});
     let stdout='',stderr='',finished=false;
-    const timer=setTimeout(()=>{child.kill('SIGKILL');if(!finished){finished=true;rejectPromise(Error('Browser test timed out after 35 seconds.'));}},35000);
-    child.stdout.on('data',chunk=>{stdout+=chunk;if(stdout.length>3_000_000)child.kill('SIGKILL');});
+    const terminate=()=>{try{if(process.platform==='win32')child.kill('SIGKILL');else process.kill(-child.pid,'SIGKILL');}catch{child.kill('SIGKILL');}};
+    const timer=setTimeout(()=>{terminate();if(!finished){finished=true;rejectPromise(Error('Browser test timed out after 35 seconds.'));}},35000);
+    child.stdout.on('data',chunk=>{stdout+=chunk;if(stdout.length>3_000_000)terminate();});
     child.stderr.on('data',chunk=>{stderr+=chunk.toString().slice(0,3000);});
     child.on('error',error=>{clearTimeout(timer);if(!finished){finished=true;rejectPromise(error);}});
     child.on('close',code=>{clearTimeout(timer);if(finished)return;finished=true;let data;try{data=JSON.parse(stdout);}catch{rejectPromise(Error('Browser worker returned invalid output. '+stderr.slice(0,500)));return;}if(code!==0||data.error){rejectPromise(Error(data.error||'Browser worker failed. '+stderr.slice(0,500)));return;}resolvePromise(data.results);});
