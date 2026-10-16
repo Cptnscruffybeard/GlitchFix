@@ -1,0 +1,15 @@
+name: GlitchFix checks
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - run: PORT=3137 node server.js > /tmp/glitchfix.log 2>&1 &
+      - run: node -e "setTimeout(async()=>{const r=await fetch('http://127.0.0.1:3137/api/health');if(!r.ok)process.exit(1);console.log(await r.text())},1000)"
