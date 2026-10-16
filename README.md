@@ -1,4 +1,4 @@
-# GlitchFix Beta 0.2
+# GlitchFix Beta 0.3
 
 GlitchFix is a runnable beta for automated QA checks of public websites, safe read-only API endpoints, and public GitHub repository manifests. It includes a responsive dashboard, demo failures, persistent run/project history, heuristic investigations, optional server-side AI diagnosis, and a check-rerun workflow.
 
@@ -24,7 +24,7 @@ Open http://localhost:3000 and choose **Run Demo Test**. No third-party packages
 - Rule-based investigation summaries with proposed next steps; AI-powered diagnosis is not yet enabled in the repository build.
 - Rerun workflow for previous checks.
 - URL validation for HTTP(S), credentials, localhost, common private/reserved IPs, and DNS-resolved private/reserved addresses. Redirects are not followed.
-- GitHub Actions, Dockerfile, Render Blueprint, and unit tests.
+- Security headers on API and static responses.\n- Automated integration coverage for health, history, project creation, and rerun behavior.\n- GitHub Actions, Dockerfile, Render Blueprint, and automated tests.
 
 ## Important limits
 
