@@ -12,6 +12,8 @@ const publicDir = join(root, 'public');
 const dataDir = process.env.GLITCHFIX_DATA_DIR || join(root, 'data');
 const statePath = join(dataDir, 'state.json');
 const port = Number(process.env.PORT || 3000);
+const apiToken = process.env.GLITCHFIX_API_TOKEN || '';
+const rateWindows = new Map();
 const state = { runs: [], projects: [], tickets: [] };
 const securityHeaders = { 'x-content-type-options':'nosniff', 'x-frame-options':'DENY', 'referrer-policy':'no-referrer', 'permissions-policy':'camera=(), microphone=(), geolocation=()', 'cache-control':'no-store' };
 const json = (res, status, value) => { res.writeHead(status, { ...securityHeaders, 'content-type':'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
@@ -85,6 +87,14 @@ async function bodyOf(req) { let s=''; for await (const chunk of req) { s+=chunk
 const app = http.createServer(async (req,res) => {
   try {
     const u=new URL(req.url,'http://localhost');
+    if (u.pathname.startsWith('/api/') && !(req.method==='GET' && u.pathname==='/api/health')) {
+      if (process.env.NODE_ENV==='production' && !apiToken) return json(res,503,{error:'API is locked: configure GLITCHFIX_API_TOKEN before enabling production access.'});
+      if (apiToken && req.headers.authorization !== 'Bearer '+apiToken) return json(res,401,{error:'Unauthorized. Enter the configured GlitchFix access token.'});
+      const now=Date.now(), key=req.socket.remoteAddress||'unknown'; let window=rateWindows.get(key);
+      if (!window || now-window.startedAt>=60000) window={startedAt:now,count:0}; window.count++; rateWindows.set(key,window);
+      if (rateWindows.size>5000) for (const [ip,item] of rateWindows) if (now-item.startedAt>=60000) rateWindows.delete(ip);
+      if (window.count>120) return json(res,429,{error:'Rate limit exceeded. Wait one minute before trying again.'});
+    }
     if(req.method==='GET'&&u.pathname==='/api/health') return json(res,200,{status:'ok',app:'GlitchFix',version:'0.3.0'});
     if(req.method==='GET'&&u.pathname==='/api/runs') return json(res,200,{runs:state.runs.slice(0,50),projects:state.projects});
     if(req.method==='GET'&&u.pathname==='/api/agents') return json(res,200,{agents:[{name:'Triage Agent',role:'Severity and prioritization'},{name:'Security Agent',role:'Security-related findings'},{name:'Reliability Agent',role:'Availability and response contracts'},{name:'Root-Cause Agent',role:'Hypothesis generation from evidence'},{name:'Ticket Agent',role:'Draft actionable tickets'}],mode:'deterministic-multi-agent',disclaimer:'Rule-based specialist passes, not trained AI models.'});
