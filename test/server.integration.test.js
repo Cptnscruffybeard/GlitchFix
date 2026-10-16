@@ -151,11 +151,12 @@ test('human feedback is validated and retained as review data', async () => {
 test('browser QA captures page health signals and a screenshot', async () => {
   const response = await fetch(`${base}/api/run`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ kind: 'browser', url: base })
+    body: JSON.stringify({ kind: 'browser', url: base + '/?token=secret-value' })
   });
   const data = await response.json();
   assert.equal(response.status, 200, data.error || 'browser run failed');
   assert.equal(data.run.kind, 'browser');
+  assert.ok(!JSON.stringify(data.run).includes('secret-value'));
   assert.ok(data.run.results.some(item => item.name === 'Browser navigation'));
   const consoleCheck = data.run.results.find(item => item.name === 'Browser console errors');
   const pageErrorCheck = data.run.results.find(item => item.name === 'Uncaught page errors');
