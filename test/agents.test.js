@@ -24,3 +24,14 @@ test('agent pipeline handles a clean run without inventing failures', () => {
   assert.equal(result.tickets.length, 0);
   assert.match(result.summary, /No failed checks/);
 });
+
+test('reviewed incorrect feedback lowers confidence on a matching future finding', () => {
+  const item = { name: 'Content-Security-Policy', status: 'failed', detail: 'Header missing.' };
+  const result = runAgentPipeline([item], {
+    tickets: [{ id: 't1', title: '[HIGH] Content-Security-Policy', feedbackLabel: 'incorrect' }],
+    feedback: [{ ticketId: 't1', label: 'incorrect' }]
+  });
+  assert.equal(result.findings[0].confidence, 0.4);
+  assert.equal(result.findings[0].priorFeedback.label, 'incorrect');
+  assert.equal(result.learningSignals.modelTraining, false);
+});
