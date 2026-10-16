@@ -23,7 +23,7 @@ before(async () => {
   dataDir = await mkdtemp(join(tmpdir(), 'glitchfix-test-'));
   base = `http://127.0.0.1:${port}`;
   server = spawn(process.execPath, [new URL('../server.js', import.meta.url).pathname], {
-    env: { ...process.env, PORT: String(port), GLITCHFIX_DATA_DIR: dataDir },
+    env: { ...process.env, PORT: String(port), GLITCHFIX_DATA_DIR: dataDir, GLITCHFIX_ALLOW_LOCAL_TEST_TARGETS: '1' },
     stdio: 'ignore'
   });
   let ready = false;
@@ -140,4 +140,18 @@ test('human feedback is validated and retained as review data', async () => {
   assert.equal(data.feedback.label, 'partially-correct');
   const summary = await fetch(`${base}/api/feedback`).then(r => r.json());
   assert.ok(summary.feedbackCount >= 1);
+});
+
+test('browser QA captures page health signals and a screenshot', async () => {
+  const response = await fetch(`${base}/api/run`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ kind: 'browser', url: base })
+  });
+  const data = await response.json();
+  assert.equal(response.status, 200, data.error || 'browser run failed');
+  assert.equal(data.run.kind, 'browser');
+  assert.ok(data.run.results.some(item => item.name === 'Browser navigation'));
+  const screenshot = data.run.results.find(item => item.name === 'Viewport screenshot');
+  assert.ok(screenshot);
+  assert.match(screenshot.evidence.dataUrl, /^data:image\/jpeg;base64,/);
 });
