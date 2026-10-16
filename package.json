@@ -1,9 +1,14 @@
 {
   "name": "glitchfix-beta",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "GlitchFix: AI-assisted automated website, API, and public GitHub repository QA beta",
   "type": "module",
-  "scripts": { "start": "node server.js", "test": "node --test" },
-  "engines": { "node": ">=20" }
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }
