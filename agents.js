@@ -60,7 +60,7 @@ export function runAgentPipeline(results, context = {}) {
   ];
   const uniqueFindings = failed.map(item => ({
     check: item.name, severity: severityFor(item), observed: item.detail,
-    likelyCause: item.detail, proposedFix: adviceFor(item), confidence: 0.65,
+    likelyCause: item.detail, proposedFix: adviceFor(item), confidence: confidenceFor(item), priorFeedback: priorLabel(item),
     verified: false, evidence: item.evidence || {}
   }));
   const counts = Object.fromEntries(['critical','high','medium','low'].map(level => [level, uniqueFindings.filter(f => f.severity === level).length]));
