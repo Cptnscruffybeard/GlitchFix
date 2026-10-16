@@ -17,7 +17,7 @@ const port = Number(process.env.PORT || 3000);
 const apiToken = process.env.GLITCHFIX_API_TOKEN || '';
 const rateWindows = new Map();
 const state = { runs: [], projects: [], tickets: [], feedback: [] };
-const securityHeaders = { 'x-content-type-options':'nosniff', 'x-frame-options':'DENY', 'referrer-policy':'no-referrer', 'permissions-policy':'camera=(), microphone=(), geolocation=()', 'cross-origin-resource-policy':'same-origin', 'x-permitted-cross-domain-policies':'none', 'content-security-policy':"default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'", 'cache-control':'no-store' };
+const securityHeaders = { 'x-content-type-options':'nosniff', 'x-frame-options':'DENY', 'referrer-policy':'no-referrer', 'permissions-policy':'camera=(), microphone=(), geolocation=()', 'cross-origin-resource-policy':'same-origin', 'x-permitted-cross-domain-policies':'none', 'content-security-policy':"default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'", 'cache-control':'no-store' };
 const json = (res, status, value) => { res.writeHead(status, { ...securityHeaders, 'content-type':'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
 async function loadState() { try { const saved = JSON.parse(await readFile(statePath,'utf8')); state.runs = saved.runs || []; state.projects = saved.projects || []; state.tickets = saved.tickets || []; state.feedback = saved.feedback || []; } catch {} }
 let saveChain=Promise.resolve();
@@ -49,6 +49,7 @@ function privateIp(ip) {
   return true;
 }
 async function safeUrl(raw) {
+  if (String(raw||'').length>2048) throw Error('URL exceeds the 2048-character limit.');
   let u; try { u = new URL(raw); } catch { throw Error('Enter a valid absolute URL.'); }
   if (!['http:','https:'].includes(u.protocol)) throw Error('Only HTTP and HTTPS URLs are allowed.');
   if (u.username || u.password) throw Error('URLs containing credentials are blocked.');
@@ -83,7 +84,8 @@ async function enrichWithAI(results, investigation) {
 async function runBrowserChecks(rawUrl) {
   const target=await safeUrl(rawUrl);
   return await new Promise((resolvePromise,rejectPromise)=>{
-    const child=spawn(process.execPath,[join(root,'browser-worker.js')],{env:process.env,stdio:['pipe','pipe','pipe']});
+    const workerEnv={PATH:process.env.PATH||'',HOME:process.env.HOME||'/home/pwuser',NODE_ENV:process.env.NODE_ENV||'',PLAYWRIGHT_BROWSERS_PATH:process.env.PLAYWRIGHT_BROWSERS_PATH||'',GLITCHFIX_ALLOW_LOCAL_TEST_TARGETS:process.env.GLITCHFIX_ALLOW_LOCAL_TEST_TARGETS||'',CI:process.env.CI||''};
+    const child=spawn(process.execPath,[join(root,'browser-worker.js')],{env:workerEnv,stdio:['pipe','pipe','pipe']});
     let stdout='',stderr='',finished=false;
     const timer=setTimeout(()=>{child.kill('SIGKILL');if(!finished){finished=true;rejectPromise(Error('Browser test timed out after 35 seconds.'));}},35000);
     child.stdout.on('data',chunk=>{stdout+=chunk;if(stdout.length>3_000_000)child.kill('SIGKILL');});
