@@ -72,7 +72,7 @@ async function enrichWithAI(results, investigation) {
   if (process.env.GLITCHFIX_AI_ENABLED !== 'true') return;
   if (!process.env.OPENAI_API_KEY) { investigation.aiDiagnosis={status:'unavailable',message:'GLITCHFIX_AI_ENABLED is true but OPENAI_API_KEY is not configured.',verified:false}; return; }
   try {
-    const diagnosis=await diagnoseWithOpenAI({results,feedback:state.feedback,apiKey:process.env.OPENAI_API_KEY,model:process.env.GLITCHFIX_AI_MODEL||'gpt-6-astra'});
+    const diagnosis=await diagnoseWithOpenAI({results,feedback:state.feedback.map(item=>({...item,ticketTitle:state.tickets.find(ticket=>ticket.id===item.ticketId)?.title||''})),apiKey:process.env.OPENAI_API_KEY,model:process.env.GLITCHFIX_AI_MODEL||'gpt-6-astra'});
     investigation.aiDiagnosis={status:'completed',...diagnosis};
     const normalizeTitle=item=>String(item.title||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
     const known=new Set([...(investigation.tickets||[]),...state.tickets].map(normalizeTitle));
