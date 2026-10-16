@@ -45,7 +45,7 @@ function responseText(payload) {
     if (item.type !== 'message') continue;
     for (const part of item.content || []) if (part.type === 'output_text' && part.text) parts.push(part.text);
   }
-  return parts.join('\\n').trim();
+  return parts.join('').trim();
 }
 
 export async function diagnoseWithOpenAI({ results, feedback = [], apiKey, model = 'gpt-6-astra', fetchImpl = fetch }) {
