@@ -17,3 +17,9 @@ services:
         value: /app/data
       - key: GLITCHFIX_API_TOKEN
         sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GLITCHFIX_AI_ENABLED
+        value: false
+      - key: GLITCHFIX_AI_MODEL
+        value: gpt-6-astra
