@@ -116,9 +116,11 @@ test('ticket status can only be changed to an allowed value', async () => {
   const created = await fetch(`${base}/api/run`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'demo' })
   }).then(r => r.json());
-  const ticket = created.run.investigation.tickets[0];
+  const listed = await fetch(`${base}/api/tickets`).then(r => r.json());
+  const ticket = listed.tickets.find(item => item.runId === created.run.id);
+  assert.ok(ticket);
   const bad = await fetch(`${base}/api/tickets/${ticket.id}`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: 'delete-everything' })
   });
-  assert.equal(bad.status, 404);
+  assert.equal(bad.status, 400);
 });
