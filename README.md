@@ -25,13 +25,13 @@ Open http://localhost:3000 and choose **Run Demo Test** or **Run Browser QA**. R
 - Local JSON persistence under `data/state.json` (override with `GLITCHFIX_DATA_DIR`).
 - Five specialist passes: triage, security, reliability, root-cause hypotheses, and ticket drafting.
 - Persistent tickets generated from failed checks, with severity, status tracking, and reviewed feedback labels.
-- A human-reviewed feedback dataset endpoint intended to support later retrieval or model evaluation; it does not train a model by itself.
+- A human-reviewed feedback dataset that adjusts confidence for matching future findings and can support later retrieval/model evaluation; it does not fine-tune model weights.
 - Optional live AI diagnosis through the OpenAI Responses API with strict JSON-schema output validation.
 - Rerun workflow for previous checks.
 - URL validation for HTTP(S), credentials, localhost, common private/reserved IPs, and DNS-resolved private/reserved addresses. Redirects are not followed.
 - Security headers on API and static responses.
 - Optional bearer-token protection, fail-closed production API access, and basic per-IP rate limiting.
-- Automated integration coverage for health, history, project creation, and rerun behavior.
+- Automated integration coverage for health, security headers, history, projects, ticket feedback, production API locking, and real Chromium browser QA.
 - GitHub Actions, Dockerfile, Render Blueprint, and automated tests.
 
 ## Important limits
@@ -47,7 +47,7 @@ Open http://localhost:3000 and choose **Run Demo Test** or **Run Browser QA**. R
 
 ## Agents and feedback
 
-The current specialist agents are deterministic rule-based passes, not trained or independently autonomous AI models. They produce ranked hypotheses and draft tickets from observed check failures. Operators can label a ticket diagnosis useful, partly correct, or incorrect; labels are stored in the feedback dataset for later evaluation or a future retrieval/model-training pipeline. Feedback collection is not model training, and the system must not treat its own unreviewed output as ground truth.
+The five specialist roles are deterministic rule-based passes. When optional AI is enabled, a server-side model adds structured diagnostic hypotheses and draft ticket suggestions. These components are coordinated analysis steps, not independently learning autonomous agents. Operators can label a ticket diagnosis useful, partly correct, or incorrect; labels are stored in the feedback dataset for later evaluation or a future retrieval/model-training pipeline. Feedback collection is not model training, and the system must not treat its own unreviewed output as ground truth.
 
 To enable live AI diagnosis, set `OPENAI_API_KEY`, set `GLITCHFIX_AI_ENABLED=true`, and optionally set `GLITCHFIX_AI_MODEL` (default `gpt-6-astra`). API calls may incur provider charges. The key remains server-side; AI output is unverified and never applies patches or opens external tickets.
 
