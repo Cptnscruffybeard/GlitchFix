@@ -24,7 +24,9 @@ Open http://localhost:3000 and choose **Run Demo Test**. No third-party packages
 - Rule-based investigation summaries with proposed next steps; AI-powered diagnosis is not yet enabled in the repository build.
 - Rerun workflow for previous checks.
 - URL validation for HTTP(S), credentials, localhost, common private/reserved IPs, and DNS-resolved private/reserved addresses. Redirects are not followed.
-- Security headers on API and static responses.\n- Automated integration coverage for health, history, project creation, and rerun behavior.\n- GitHub Actions, Dockerfile, Render Blueprint, and automated tests.
+- Security headers on API and static responses.
+- Automated integration coverage for health, history, project creation, and rerun behavior.
+- GitHub Actions, Dockerfile, Render Blueprint, and automated tests.
 
 ## Important limits
 
